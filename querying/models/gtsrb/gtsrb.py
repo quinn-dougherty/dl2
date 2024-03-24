@@ -1,4 +1,5 @@
-'''Train CIFAR10 with PyTorch.'''
+"""Train CIFAR10 with PyTorch."""
+
 from __future__ import print_function
 
 import torch
@@ -14,51 +15,57 @@ import os
 import argparse
 import sys
 
-sys.path.append('../cifar')
+sys.path.append("../cifar")
 from models import *
 from utils import progress_bar
 
 
-parser = argparse.ArgumentParser(description='PyTorch GTSRB Training')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--net', type=str, help='net to use')
-parser.add_argument('--epochs', type=int, help='number of epochs')
+parser = argparse.ArgumentParser(description="PyTorch GTSRB Training")
+parser.add_argument("--lr", default=0.1, type=float, help="learning rate")
+parser.add_argument(
+    "--resume", "-r", action="store_true", help="resume from checkpoint"
+)
+parser.add_argument("--net", type=str, help="net to use")
+parser.add_argument("--epochs", type=int, help="number of epochs")
 args = parser.parse_args()
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = "cuda" if torch.cuda.is_available() else "cpu"
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
 # Data
-print('==> Preparing data..')
-transform_train = transforms.Compose([
-    transforms.RandomAffine(5),
-    transforms.Resize((32, 32)),
-    transforms.ToTensor()
-])
+print("==> Preparing data..")
+transform_train = transforms.Compose(
+    [transforms.RandomAffine(5), transforms.Resize((32, 32)), transforms.ToTensor()]
+)
 
-transform_test = transforms.Compose([
-    transforms.Resize((32, 32)),
-    transforms.ToTensor()
-])
+transform_test = transforms.Compose(
+    [transforms.Resize((32, 32)), transforms.ToTensor()]
+)
 
-trainset = torchvision.datasets.ImageFolder('../../../data/GTSRB/Final_Training/Images', transform=transform_train)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
+trainset = torchvision.datasets.ImageFolder(
+    "../../../data/GTSRB/Final_Training/Images", transform=transform_train
+)
+trainloader = torch.utils.data.DataLoader(
+    trainset, batch_size=128, shuffle=True, num_workers=2
+)
 
-testset = torchvision.datasets.ImageFolder('../../../data/GTSRB/Final_Test/Images', transform=transform_test)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-
+testset = torchvision.datasets.ImageFolder(
+    "../../../data/GTSRB/Final_Test/Images", transform=transform_test
+)
+testloader = torch.utils.data.DataLoader(
+    testset, batch_size=100, shuffle=False, num_workers=2
+)
 
 
 # Model
-print('==> Building model..')
-if args.net == 'vgg16':
-    net = VGG('VGG16', num_classes=43)
-elif args.net == 'resnet18':
+print("==> Building model..")
+if args.net == "vgg16":
+    net = VGG("VGG16", num_classes=43)
+elif args.net == "resnet18":
     net = ResNet18(num_classes=43)
 else:
-    print('Net not supported')
+    print("Net not supported")
 
 # net = VGG('VGG19')
 # net = PreActResNet18()
@@ -70,27 +77,28 @@ else:
 # net = DPN92()
 # net = ShuffleNetG2()
 # net = SENet18()
-#net = ShuffleNetV2(1)
+# net = ShuffleNetV2(1)
 net = net.to(device)
-if device == 'cuda':
+if device == "cuda":
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
 if args.resume:
     # Load checkpoint.
-    print('==> Resuming from checkpoint..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/' + args.net + '.pt')
-    net.load_state_dict(checkpoint['net'])
-    best_acc = checkpoint['acc']
-    start_epoch = checkpoint['epoch']
+    print("==> Resuming from checkpoint..")
+    assert os.path.isdir("checkpoint"), "Error: no checkpoint directory found!"
+    checkpoint = torch.load("./checkpoint/" + args.net + ".pt")
+    net.load_state_dict(checkpoint["net"])
+    best_acc = checkpoint["acc"]
+    start_epoch = checkpoint["epoch"]
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 
+
 # Training
 def train(epoch):
-    print('\nEpoch: %d' % epoch)
+    print("\nEpoch: %d" % epoch)
     net.train()
     train_loss = 0
     correct = 0
@@ -108,8 +116,13 @@ def train(epoch):
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        progress_bar(
+            batch_idx,
+            len(trainloader),
+            "Loss: %.3f | Acc: %.3f%% (%d/%d)"
+            % (train_loss / (batch_idx + 1), 100.0 * correct / total, correct, total),
+        )
+
 
 def test(epoch):
     global best_acc
@@ -128,21 +141,30 @@ def test(epoch):
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+            progress_bar(
+                batch_idx,
+                len(testloader),
+                "Loss: %.3f | Acc: %.3f%% (%d/%d)"
+                % (
+                    test_loss / (batch_idx + 1),
+                    100.0 * correct / total,
+                    correct,
+                    total,
+                ),
+            )
 
     # Save checkpoint.
-    acc = 100.*correct/total
+    acc = 100.0 * correct / total
     if acc > best_acc:
-        print('Saving..')
+        print("Saving..")
         state = {
-            'net': net.state_dict(),
-            'acc': acc,
-            'epoch': epoch,
+            "net": net.state_dict(),
+            "acc": acc,
+            "epoch": epoch,
         }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/' + args.net + '.pt')
+        if not os.path.isdir("checkpoint"):
+            os.mkdir("checkpoint")
+        torch.save(state, "./checkpoint/" + args.net + ".pt")
         best_acc = acc
 
 

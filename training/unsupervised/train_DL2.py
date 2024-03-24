@@ -12,12 +12,15 @@ import torch.optim as optim
 import random
 
 import sys
-sys.path.append('pygcn/pygcn')
+
+sys.path.append("pygcn/pygcn")
 from utils import load_data, accuracy
 from layers import GraphConvolution
 from graphs import Graph
-sys.path.append('../../')
+
+sys.path.append("../../")
 import dl2lib as dl2
+
 
 class GCN(nn.Module):
     def __init__(self, nclass, N, H, dropout=0.3):
@@ -41,27 +44,35 @@ class GCN(nn.Module):
 # Training settings
 parser = argparse.ArgumentParser()
 parser = dl2.add_default_parser_args(parser)
-parser.add_argument('--no-cuda', action='store_true', default=False,
-                    help='Disables CUDA training.')
-parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=60000,
-                    help='Number of epochs to train.')
-parser.add_argument('--n_train', type=int, default=300,
-                    help='Number of train samples.')
-parser.add_argument('--n_valid', type=int, default=150,
-                    help='Number of valid samples.')
-parser.add_argument('--lr', type=float, default=0.0001,
-                    help='Initial learning rate.')
-parser.add_argument('--weight_decay', type=float, default=5e-4,
-                    help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--dropout', type=float, default=0.3,
-                    help='Dropout rate (1 - keep probability).')
-parser.add_argument('--hidden', type=int, default=1000,
-                    help='number of units in hidden layers')
-parser.add_argument('-n', type=int, default=15,
-                    help='number of nodes in the graph')
-parser.add_argument('--baseline', type=dl2.str2bool, default=False,
-                    help='run supervised learning baseline')
+parser.add_argument(
+    "--no-cuda", action="store_true", default=False, help="Disables CUDA training."
+)
+parser.add_argument("--seed", type=int, default=42, help="Random seed.")
+parser.add_argument(
+    "--epochs", type=int, default=60000, help="Number of epochs to train."
+)
+parser.add_argument("--n_train", type=int, default=300, help="Number of train samples.")
+parser.add_argument("--n_valid", type=int, default=150, help="Number of valid samples.")
+parser.add_argument("--lr", type=float, default=0.0001, help="Initial learning rate.")
+parser.add_argument(
+    "--weight_decay",
+    type=float,
+    default=5e-4,
+    help="Weight decay (L2 loss on parameters).",
+)
+parser.add_argument(
+    "--dropout", type=float, default=0.3, help="Dropout rate (1 - keep probability)."
+)
+parser.add_argument(
+    "--hidden", type=int, default=1000, help="number of units in hidden layers"
+)
+parser.add_argument("-n", type=int, default=15, help="number of nodes in the graph")
+parser.add_argument(
+    "--baseline",
+    type=dl2.str2bool,
+    default=False,
+    help="run supervised learning baseline",
+)
 
 
 args = parser.parse_args()
@@ -74,28 +85,28 @@ if args.cuda:
 
 # Load data
 
-print('Generating train set...')
+print("Generating train set...")
 train_graphs, valid_graphs, test_graphs = [], [], []
 for it in range(args.n_train):
-    m = np.random.randint(args.n-1, int(args.n*(args.n-1)/2+1))
+    m = np.random.randint(args.n - 1, int(args.n * (args.n - 1) / 2 + 1))
     train_graphs.append(Graph.gen_random_graph(args.n, m))
 
-print('Generating valid set...')
+print("Generating valid set...")
 for it in range(args.n_valid):
-    m = np.random.randint(args.n-1, int(args.n*(args.n-1)/2+1))
+    m = np.random.randint(args.n - 1, int(args.n * (args.n - 1) / 2 + 1))
     valid_graphs.append(Graph.gen_random_graph(args.n, m))
 
-print('Generating test set...')
+print("Generating test set...")
 for it in range(args.n_valid):
-    m = np.random.randint(args.n-1, int(args.n*(args.n-1)/2+1))
+    m = np.random.randint(args.n - 1, int(args.n * (args.n - 1) / 2 + 1))
     test_graphs.append(Graph.gen_random_graph(args.n, m))
 
 # Model and optimizer
 model = GCN(nclass=1, N=args.n, H=args.hidden, dropout=args.dropout)
 if args.cuda:
-    model.to('cuda:0')
-optimizer = optim.Adam(model.parameters(),
-                      lr=args.lr, weight_decay=args.weight_decay)
+    model.to("cuda:0")
+optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
 
 def train(epoch):
     tot_err, tot_dl2_loss = 0, 0
@@ -156,7 +167,7 @@ def test(val=True, e=None):
             adj = torch.sparse.FloatTensor(idx, v, torch.Size([g.n, g.n])).to_dense()
             if args.cuda:
                 adj = adj.cuda()
-            
+
         out = model.forward(adj)
         dist = torch.FloatTensor([g.p[0, i] for i in range(g.n)])
         if args.cuda:
@@ -167,16 +178,17 @@ def test(val=True, e=None):
         tot_err += err
 
     if e is not None:
-        print(str(e) + ' ', end='')
-    print('[Valid] Average error: ', tot_err/float(len(valid_graphs)))
+        print(str(e) + " ", end="")
+    print("[Valid] Average error: ", tot_err / float(len(valid_graphs)))
     if val is False:
-        print('[Valid] Baseline err: ', baseline_err/float(len(valid_graphs)))
+        print("[Valid] Baseline err: ", baseline_err / float(len(valid_graphs)))
+
 
 # Train model
 t_total = time.time()
 for epoch in range(1, args.epochs):
     train(epoch)
-    print('.', end='', flush=True)
+    print(".", end="", flush=True)
     if epoch % 50 == 0:
         print()
         test(e=epoch)

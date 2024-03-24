@@ -5,7 +5,8 @@ import os
 from textx.metamodel import metamodel_from_str
 import numpy as np
 
-class Scope():
+
+class Scope:
 
     def __init__(self, context):
         self.scope = dict(context)
@@ -18,19 +19,22 @@ class Scope():
         self.scope[name] = val
 
     def get_models(self):
-        return dict(filter(lambda x: isinstance(x[1], torch.nn.Module), self.scope.items()))
-        
+        return dict(
+            filter(lambda x: isinstance(x[1], torch.nn.Module), self.scope.items())
+        )
+
     def get_variables(self):
         return dict(filter(lambda x: isinstance(x[1], q.Variable), self.scope.items()))
 
     def get(self, name):
         return self.scope.get(name)
 
+
 class Parser:
 
     def __init__(self, query, context, args):
         curr_dir = os.path.dirname(__file__)
-        with open(os.path.join(curr_dir, 'language.tx'), 'r') as f:
+        with open(os.path.join(curr_dir, "language.tx"), "r") as f:
             grammar = f.read()
         mm = metamodel_from_str(grammar)
         self.parse_tree = mm.model_from_str(query)
@@ -47,11 +51,17 @@ class Parser:
 
     def generate_find(self):
         self.traverse_variable_declarations(self.parse_tree.find.variable_declarations)
-        constraints = self.traverse_constraints(self.parse_tree.find.constraints.constraints)
+        constraints = self.traverse_constraints(
+            self.parse_tree.find.constraints.constraints
+        )
         if self.parse_tree.find.variable_initialization:
-            self.traverse_variable_initialization(self.parse_tree.find.variable_initialization.initializations)
+            self.traverse_variable_initialization(
+                self.parse_tree.find.variable_initialization.initializations
+            )
         if self.parse_tree.find.return_values:
-            return_values = self.traverse_return_values(self.parse_tree.find.return_values)
+            return_values = self.traverse_return_values(
+                self.parse_tree.find.return_values
+            )
         else:
             return_values = None
         return constraints, return_values
@@ -84,29 +94,29 @@ class Parser:
                 ret = self.traverse_index(ret, index)
             return ret
         else:
-            assert layer is None or layer.strip() == ''
-            if function_name == 'class':
+            assert layer is None or layer.strip() == ""
+            if function_name == "class":
                 return q.Class(*args)
-            elif function_name == 'sum':
-                return q.Fn('sum', lambda a: torch.sum(a), *args)
-            elif function_name == 'abs':
-                return q.Fn('abs', lambda a: torch.abs(a), *args)
-            elif function_name == 'norm1':
-                return q.Fn('norm1', lambda a: a.norm(1), *args)
-            elif function_name == 'norm2':
-                return q.Fn('norm2', lambda a: a.norm(2), *args)
-            elif function_name == 'normInf':
-                return q.Fn('normInf', lambda a: a.norm(float('inf')), *args)
-            elif function_name == 'argmax':
-                return q.Fn('argmax', lambda a: a.argmax(), *args)
-            elif function_name == 'clamp':
-                return q.Fn('clamp', lambda a, b, c: a.clamp(min=b, max=c), *args)
+            elif function_name == "sum":
+                return q.Fn("sum", lambda a: torch.sum(a), *args)
+            elif function_name == "abs":
+                return q.Fn("abs", lambda a: torch.abs(a), *args)
+            elif function_name == "norm1":
+                return q.Fn("norm1", lambda a: a.norm(1), *args)
+            elif function_name == "norm2":
+                return q.Fn("norm2", lambda a: a.norm(2), *args)
+            elif function_name == "normInf":
+                return q.Fn("normInf", lambda a: a.norm(float("inf")), *args)
+            elif function_name == "argmax":
+                return q.Fn("argmax", lambda a: a.argmax(), *args)
+            elif function_name == "clamp":
+                return q.Fn("clamp", lambda a, b, c: a.clamp(min=b, max=c), *args)
             else:
                 assert False
-        
+
     def traverse_expression(self, exp):
         def traverse_term(term):
-            if term.op == '*':
+            if term.op == "*":
                 lhs = traverse_factor(term.factor)
                 rhs = traverse_factor(term.rhs)
                 return lhs * rhs
@@ -115,13 +125,15 @@ class Parser:
 
         def traverse_factor(factor):
             if factor.function:
-                return self.traverse_function_application(factor.function, factor.args, factor.layer, factor.index)
+                return self.traverse_function_application(
+                    factor.function, factor.args, factor.layer, factor.index
+                )
             elif factor.op:
                 return self.traverse_operand(factor.op)
             else:
                 return self.traverse_expression(factor.exp)
 
-        if exp.op in ['+', '-']:
+        if exp.op in ["+", "-"]:
             lhs = traverse_term(exp.term)
             rhs = self.traverse_expression(exp.exp)
             return eval(f"lhs {exp.op} rhs")
@@ -133,15 +145,15 @@ class Parser:
             args = constraint.args
             if constraint.rhs is not None:
                 args.append(constraint.rhs)
-            return self.traverse_function_application('class', args, None, None)
+            return self.traverse_function_application("class", args, None, None)
         lhs = self.traverse_expression(constraint.lhs)
         rhs = self.traverse_expression(constraint.rhs)
-        if constraint.op == 'in':
+        if constraint.op == "in":
             return lhs.in_(rhs)
-        if constraint.op == '=':
+        if constraint.op == "=":
             return lhs.eq_(rhs)
         return eval(f"lhs {constraint.op} rhs")
-        
+
     def traverse_constraints(self, constraints):
         ast_constraints = []
         for constraint in constraints:
@@ -180,16 +192,16 @@ class Parser:
             return eval(f"val[index]")
         elif idx.val:
             return eval(f"val[{idx.val}]")
-        
+
     def traverse_operand(self, operand):
-        if get_fqn(operand) == 'Operand':
+        if get_fqn(operand) == "Operand":
             operand = operand.val
         fqn = get_fqn(operand)
-        if fqn == 'Constant':
+        if fqn == "Constant":
             return self.traverse_constant(operand)
-        elif fqn == 'Variable':
+        elif fqn == "Variable":
             return self.traverse_variable(operand)
-        elif fqn == 'Interval':
+        elif fqn == "Interval":
             return self.traverse_interval(operand)
         else:
             raise TypeError(f"data type {fqn} not supported as operand: {operand}")

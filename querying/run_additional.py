@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append("..")
 import dl2lib.query as q
 import dl2lib as dl2
@@ -12,32 +13,35 @@ import numpy as np
 
 
 def q1(s):
-    i = q.Variable('i', (s,))
+    i = q.Variable("i", (s,))
     i_s = i.sum()
     success, r, t = q.solve(q.And(1000 < i_s, i_s < 1001), args, return_values=[i_s])
     return success, r, t
 
 
 def q2(c):
-    i = q.Variable('i', (1,))
+    i = q.Variable("i", (1,))
     success, r, t = q.solve(q.Or(i < -c, c < i), args)
     return success, r, t
+
 
 def q3(c, row_up_to, col_up_to, context):
 
     def lt_row_constraint(i, j):
-        return f'p[0, 0, {i}, {j}] < p[0, 0, {i}, {j+1}]'
+        return f"p[0, 0, {i}, {j}] < p[0, 0, {i}, {j+1}]"
 
     def lt_col_constraint(i, j):
-        return f'p[0, 0, {i}, {j}] < p[0, 0, {i+1}, {j}]'
+        return f"p[0, 0, {i}, {j}] < p[0, 0, {i+1}, {j}]"
 
     def row_constraint(i):
-        return ', '.join([lt_row_constraint(i, j) for j in range(27)])
+        return ", ".join([lt_row_constraint(i, j) for j in range(27)])
 
     def col_constraint(j):
-        return ', '.join([lt_col_constraint(i, j) for i in range(27)])
+        return ", ".join([lt_col_constraint(i, j) for i in range(27)])
 
-    query_constraints = [f'class(M_NN1(clamp(p + M_nine, 0, 1)), {c})']#, 'p in [-0.3, 0.3]']
+    query_constraints = [
+        f"class(M_NN1(clamp(p + M_nine, 0, 1)), {c})"
+    ]  # , 'p in [-0.3, 0.3]']
 
     for i in range(row_up_to):
         query_constraints.append(row_constraint(i))
@@ -52,11 +56,25 @@ def q3(c, row_up_to, col_up_to, context):
     return success, r, t
 
 
-
-parser = ArgumentParser(description='DL2 Querying', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = ArgumentParser(
+    description="DL2 Querying", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+)
 parser = dl2.add_default_parser_args(parser, query=True)
-parser.add("--instances", type=int, default=10, required=False, help="max number of instances to run per query")
-parser.add("--query", type=int, choices=[1, 2, 3], default=1, required=False, help="max number of instances to run per query")
+parser.add(
+    "--instances",
+    type=int,
+    default=10,
+    required=False,
+    help="max number of instances to run per query",
+)
+parser.add(
+    "--query",
+    type=int,
+    choices=[1, 2, 3],
+    default=1,
+    required=False,
+    help="max number of instances to run per query",
+)
 parser.add("-a", type=int, default=None, required=False, help="argument")
 parser.add("--plot", type=dl2.str2bool, default=False, required=False, help="argument")
 args = parser.parse_args()
@@ -79,7 +97,9 @@ if args.query == 1:
                 success_count += 1
         t_all /= args.instances
         t_success = t_success / success_count if success_count != 0 else 0.0
-        print(s, f"{success_count}/{args.instances}", f"{t_all:.2f}", f"{t_success:.2f}")
+        print(
+            s, f"{success_count}/{args.instances}", f"{t_all:.2f}", f"{t_success:.2f}"
+        )
 elif args.query == 2:
     c_max = args.a or 18
     for c in range(0, c_max):
@@ -95,7 +115,9 @@ elif args.query == 2:
                 success_count += 1
         t_all /= args.instances
         t_success = t_success / success_count if success_count != 0 else 0.0
-        print(c, f"{success_count}/{args.instances}", f"{t_all:.2f}", f"{t_success:.2f}")
+        print(
+            c, f"{success_count}/{args.instances}", f"{t_all:.2f}", f"{t_success:.2f}"
+        )
     pass
 elif args.query == 3:
     context = get_context(args)
@@ -112,10 +134,17 @@ elif args.query == 3:
                 success_count += 1
         t_all /= 9.0
         t_success = t_success / success_count if success_count != 0 else 0.0
-        print(row, col, f"{success_count}/{args.instances}", f"{t_all:.2f}", f"{t_success:.2f}")
+        print(
+            row,
+            col,
+            f"{success_count}/{args.instances}",
+            f"{t_all:.2f}",
+            f"{t_success:.2f}",
+        )
         if success and row == 28 and col == 28 and args.plot:
             import matplotlib.pyplot as plt
-            plt.imshow(r.reshape(28, 28), vmin=0, vmax=1, cmap='gray')
+
+            plt.imshow(r.reshape(28, 28), vmin=0, vmax=1, cmap="gray")
             plt.show()
 
     print()

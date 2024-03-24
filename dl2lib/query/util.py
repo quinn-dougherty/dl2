@@ -1,4 +1,4 @@
-#import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 from typing import Dict, Any, List
 
@@ -11,7 +11,7 @@ def get_fqn(node) -> str:
     Ideally this should be replaced by fixing textX.
     """
     text = node.__repr__()
-    if text.startswith('<textx:'):
-        return text[7:].strip().split(' ')[0]
+    if text.startswith("<textx:"):
+        return text[7:].strip().split(" ")[0]
     else:
-        return text.split(':')[0].replace('>', '').replace('<', '')
+        return text.split(":")[0].replace(">", "").replace("<", "")

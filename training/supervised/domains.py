@@ -1,20 +1,22 @@
 import numpy as np
 
+
 class Box:
 
     def __init__(self, a, b):
         self.a = a
         self.b = b
-        self.name = 'box'
+        self.name = "box"
 
     def is_empty(self):
         return np.any(self.a > self.b)
-        
+
     def project(self, x):
         return np.clip(x, self.a, self.b)
 
     def sample(self):
         return (self.b - self.a) * np.random.random_sample(size=self.a.shape) + self.a
+
 
 class Segment:
 
@@ -23,7 +25,7 @@ class Segment:
         self.p2_n = p2.cpu().numpy()
         self.d = self.p2_n - self.p1_n
         self.d_norm = self.d / np.linalg.norm(self.d)
-        self.name = 'segment'
+        self.name = "segment"
 
     def is_empty(self):
         return False
@@ -40,6 +42,7 @@ class Segment:
     def sample(self):
         return self.p1_n + (self.p2_n - self.p1_n) * np.random.random()
 
+
 # class L2_Ball(Domain):
 
 #     def __init__(self, r):
@@ -50,6 +53,3 @@ class Segment:
 #         p_batch = x_batch.clone()
 #         p_batch[norms > self.r] = x_batch / norms * self.r
 #         return p_batch
-
-
-

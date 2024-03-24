@@ -10,19 +10,26 @@ import sys
 import signal
 import re
 
+
 def make_comp(op, a, b):
-    a_is_inf = (isinstance(a, Fn) and a.t == 'normInf') and a.args[0].is_shape_preserving_arithmetic_in_var_const()
-    b_is_inf = (isinstance(b, Fn) and b.t == 'normInf') and b.args[0].is_shape_preserving_arithmetic_in_var_const()
-    if (((a.is_var() or a.is_const()) and (b.is_var() or b.is_const())) or
-            (a_is_inf and op in ['le', 'lt'] and (b.is_var() or b.is_const())) or
-            (b_is_inf and op in ['ge', 'gt'] and (a.is_var() or a.is_const()))):
+    a_is_inf = (isinstance(a, Fn) and a.t == "normInf") and a.args[
+        0
+    ].is_shape_preserving_arithmetic_in_var_const()
+    b_is_inf = (isinstance(b, Fn) and b.t == "normInf") and b.args[
+        0
+    ].is_shape_preserving_arithmetic_in_var_const()
+    if (
+        ((a.is_var() or a.is_const()) and (b.is_var() or b.is_const()))
+        or (a_is_inf and op in ["le", "lt"] and (b.is_var() or b.is_const()))
+        or (b_is_inf and op in ["ge", "gt"] and (a.is_var() or a.is_const()))
+    ):
         if a_is_inf:
-            a = Fn('abs', lambda a: a.abs(), a.args[0])
+            a = Fn("abs", lambda a: a.abs(), a.args[0])
         if b_is_inf:
-            b = Fn('abs', lambda b: b.abs(), b.args[0])
-        a = Fn('view(-1)', lambda a: a.view(-1), a)
+            b = Fn("abs", lambda b: b.abs(), b.args[0])
+        a = Fn("view(-1)", lambda a: a.view(-1), a)
         ashape = a.shape()
-        b = Fn('view(-1)', lambda b: b.view(-1), b)
+        b = Fn("view(-1)", lambda b: b.view(-1), b)
         bshape = b.shape()
         if ashape == bshape:
             return And(*[Comp(op, a[i], b[i]) for i in range(ashape[0])])
@@ -35,6 +42,7 @@ def make_comp(op, a, b):
     else:
         return Comp(op, a, b)
 
+
 class DL2Tensor:
 
     def __init__(self):
@@ -44,47 +52,51 @@ class DL2Tensor:
         if type(other) in [float, int, torch.Tensor, np.array, np.ndarray]:
             return Constant(other, self.cuda)
         return other
-    
+
     def __add__(self, other):
         other = self.upgrade_other(other)
-        return Fn('+', lambda a, b: a + b, self, other)
+        return Fn("+", lambda a, b: a + b, self, other)
 
     def __mul__(self, other):
         other = self.upgrade_other(other)
-        return Fn('*', lambda a, b: a * b, self, other)
+        return Fn("*", lambda a, b: a * b, self, other)
 
     def __sub__(self, other):
         other = self.upgrade_other(other)
-        return Fn('-', lambda a, b: a - b, self, other)
+        return Fn("-", lambda a, b: a - b, self, other)
 
     def sum(self):
-        return Fn('sum', lambda a: a.sum(), self)
-    
+        return Fn("sum", lambda a: a.sum(), self)
+
     def __lt__(self, other):
         other = self.upgrade_other(other)
-        return make_comp('lt', self, other)
+        return make_comp("lt", self, other)
 
     def __le__(self, other):
         other = self.upgrade_other(other)
-        return make_comp('le', self, other)
+        return make_comp("le", self, other)
 
     def __gt__(self, other):
         other = self.upgrade_other(other)
-        return make_comp('gt', self, other)
+        return make_comp("gt", self, other)
 
     def __ge__(self, other):
         other = self.upgrade_other(other)
-        return make_comp('ge', self, other)
+        return make_comp("ge", self, other)
 
     def eq_(self, other):
         other = self.upgrade_other(other)
-        return make_comp('eq', self, other)
-    
+        return make_comp("eq", self, other)
+
     def __neg__(self):
-        return Fn('neg', lambda a: -a, self)
+        return Fn("neg", lambda a: -a, self)
 
     def shape(self):
-        if self.is_var() or self.is_const() or self.is_shape_preserving_arithmetic_in_var_const():
+        if (
+            self.is_var()
+            or self.is_const()
+            or self.is_shape_preserving_arithmetic_in_var_const()
+        ):
             with torch.no_grad():
                 return self.to_diffsat(cache=False).shape
         else:
@@ -92,25 +104,39 @@ class DL2Tensor:
 
     def reset_cache(self):
         pass
-        
+
     # [] operator
     def __getitem__(self, key):
-        return Fn('[]', lambda a, b: a.__getitem__(b), self, key)
+        return Fn("[]", lambda a, b: a.__getitem__(b), self, key)
 
     def is_var(self):
-        return isinstance(self, Variable) or (isinstance(self, Fn) and (self.t == '[]' or 'view' in self.t) and self.args[0].is_var())
+        return isinstance(self, Variable) or (
+            isinstance(self, Fn)
+            and (self.t == "[]" or "view" in self.t)
+            and self.args[0].is_var()
+        )
 
     def is_const(self):
-        return isinstance(self, Constant) or (isinstance(self, Fn) and (self.t == '[]' or 'view' in self.t) and self.args[0].is_const())
+        return isinstance(self, Constant) or (
+            isinstance(self, Fn)
+            and (self.t == "[]" or "view" in self.t)
+            and self.args[0].is_const()
+        )
 
     def is_shape_preserving_arithmetic_in_var_const(self):
         if self.is_var or self.is_const():
             return True
         if isinstance(self, Fn):
-            return self.t in ['+', '-', 'abs'] and all([a.is_shape_preserving_arithmetic_in_var_const() for a in self.args])
+            return self.t in ["+", "-", "abs"] and all(
+                [a.is_shape_preserving_arithmetic_in_var_const() for a in self.args]
+            )
         return False
-        return isinstance(self, Constant) or (isinstance(self, Fn) and (self.t == '[]' or 'view' in self.t) and self.args[0].is_const())
-    
+        return isinstance(self, Constant) or (
+            isinstance(self, Fn)
+            and (self.t == "[]" or "view" in self.t)
+            and self.args[0].is_const()
+        )
+
     # in as function name, not the operator
     def in_(self, interval):
         assert isinstance(interval, Interval)
@@ -125,7 +151,8 @@ class DL2Tensor:
             var[:] = value[:]
 
     def simplify(self, delete_box_constraints=False):
-        return self        
+        return self
+
 
 class DL2Logic:
 
@@ -135,7 +162,7 @@ class DL2Logic:
     def get_variables(self):
         variables = []
         for arg in self.args:
-            if hasattr(arg, 'get_variables'):
+            if hasattr(arg, "get_variables"):
                 variables.extend(arg.get_variables())
         return variables
 
@@ -146,25 +173,25 @@ class DL2Logic:
 class Class(DL2Logic):
 
     def __init__(self, net, c):
-        assert isinstance(net, Fn) and net.t == '()'
+        assert isinstance(net, Fn) and net.t == "()"
         self.net = net
         self.c = c
 
     def __str__(self):
         return f"(class, {self.net}, {self.c})"
-        
+
     def get_variables(self):
         return self.net.get_variables()
 
     def reset_cache(self):
         self.net.reset_cache()
         self.c.reset_cache()
-    
+
     def to_diffsat(self, cache=True, reset_cache=False):
         if reset_cache:
             self.reset_cache()
         logits = self.net.to_diffsat(cache=cache)
-        c = self.c.to_diffsat(cache=cache) if hasattr(self.c, 'to_diffsat') else self.c
+        c = self.c.to_diffsat(cache=cache) if hasattr(self.c, "to_diffsat") else self.c
         c = int(c)
         batch_size, nr_classes = logits.shape
         assert batch_size == 1
@@ -174,7 +201,8 @@ class Class(DL2Logic):
                 continue
             constraints.append(diffsat.LT(logits[0, k], logits[0, c]))
         return diffsat.And(constraints)
-    
+
+
 class And(DL2Logic):
 
     def __init__(self, *args):
@@ -187,7 +215,7 @@ class And(DL2Logic):
     def reset_cache(self):
         for arg in self.args:
             arg.reset_cache()
-    
+
     def to_diffsat(self, cache=True, reset_cache=False):
         if reset_cache:
             self.reset_cache()
@@ -196,14 +224,14 @@ class And(DL2Logic):
     def get_box_constraints(self):
         boxes = []
         for arg in self.args:
-            if hasattr(arg, 'get_box_constraints'):
+            if hasattr(arg, "get_box_constraints"):
                 boxes.extend(arg.get_box_constraints())
         return boxes
 
     def simplify(self, delete_box_constraints=False):
         new_args = []
         for arg in self.args:
-            is_box = hasattr(arg, 'is_box_constraint') and arg.is_box_constraint()
+            is_box = hasattr(arg, "is_box_constraint") and arg.is_box_constraint()
             if (delete_box_constraints and not is_box) or not delete_box_constraints:
                 arg = arg.simplify(delete_box_constraints=delete_box_constraints)
                 if (isinstance(arg, And) or isinstance(arg, Or)) and len(arg.args) == 0:
@@ -211,7 +239,7 @@ class And(DL2Logic):
                 new_args.append(arg)
         return And(*new_args)
 
-    
+
 class Or(DL2Logic):
 
     def __init__(self, *args):
@@ -224,16 +252,16 @@ class Or(DL2Logic):
     def reset_cache(self):
         for arg in self.args:
             arg.reset_cache()
-    
+
     def to_diffsat(self, cache=True, reset_cache=False):
         if reset_cache:
             self.reset_cache()
         return diffsat.Or(lmap(lambda x: x.to_diffsat(cache=cache), self.args))
 
     def get_box_constraints(self):
-        return [] # we can't go over "or"
-    
-        
+        return []  # we can't go over "or"
+
+
 class Comp(DL2Logic):
 
     def __init__(self, t, a, b):
@@ -251,15 +279,17 @@ class Comp(DL2Logic):
     def reset_cache(self):
         self.a.reset_cache()
         self.b.reset_cache()
-    
+
     def to_diffsat(self, cache=True, reset_cache=False):
         if reset_cache:
             self.reset_cache()
-        op = {'eq': diffsat.EQ,
-              'lt': diffsat.LT,
-              'le': diffsat.LEQ,
-              'gt': diffsat.GT,
-              'ge': diffsat.GEQ}[self.t]
+        op = {
+            "eq": diffsat.EQ,
+            "lt": diffsat.LT,
+            "le": diffsat.LEQ,
+            "gt": diffsat.GT,
+            "ge": diffsat.GEQ,
+        }[self.t]
         a = self.a.to_diffsat(cache=cache)
         b = self.b.to_diffsat(cache=cache)
         if a.shape == torch.Size([1]):
@@ -274,24 +304,26 @@ class Comp(DL2Logic):
         return self.a.get_variables() + self.b.get_variables()
 
     def is_box_constraint(self):
-        return (self.a.is_const() and self.b.is_var()) or (self.a.is_var() and self.b.is_const())
-    
+        return (self.a.is_const() and self.b.is_var()) or (
+            self.a.is_var() and self.b.is_const()
+        )
+
     def get_box_constraints(self):
         return [self] if self.is_box_constraint() else []
 
     # def isNormInf
-    
+
     # def simplify(self):
     #     pass
-    
-    
+
+
 class Fn(DL2Tensor):
 
     def __init__(self, t, fn, *args):
         self.t = t
         self.fn = fn
         self.args = args
-        self.cuda = any([hasattr(a, 'cuda') and a.cuda for a in self.args])
+        self.cuda = any([hasattr(a, "cuda") and a.cuda for a in self.args])
         self.cache = None
 
     def __str__(self):
@@ -300,15 +332,18 @@ class Fn(DL2Tensor):
     def reset_cache(self):
         self.cache = None
         for a in self.args:
-            if hasattr(a, 'reset_cache'):
+            if hasattr(a, "reset_cache"):
                 a.reset_cache()
-    
+
     def to_diffsat(self, cache=True, reset_cache=False):
         if reset_cache:
             self.reset_cache()
         if cache and self.cache is not None:
             return self.cache
-        args = [a.to_diffsat(cache=cache) if hasattr(a, 'to_diffsat') else a for a in self.args]
+        args = [
+            a.to_diffsat(cache=cache) if hasattr(a, "to_diffsat") else a
+            for a in self.args
+        ]
         result = self.fn(*args)
         if cache and self.cache is None:
             self.cache = result
@@ -317,10 +352,11 @@ class Fn(DL2Tensor):
     def get_variables(self):
         variables = []
         for arg in self.args:
-            if hasattr(arg, 'get_variables'):
+            if hasattr(arg, "get_variables"):
                 variables.extend(arg.get_variables())
         return variables
-        
+
+
 class Variable(DL2Tensor):
 
     def __init__(self, name, shape, cuda=False):
@@ -330,7 +366,7 @@ class Variable(DL2Tensor):
         self.tensor = torch.zeros(self.shape)
         self.cuda = cuda
         if cuda:
-            self.tensor = self.tensor.to('cuda:0')
+            self.tensor = self.tensor.to("cuda:0")
         self.tensor.requires_grad_()
 
     def __str__(self):
@@ -344,7 +380,7 @@ class Variable(DL2Tensor):
     def get_variables(self):
         return [self]
 
-    
+
 class Constant(DL2Tensor):
 
     def __init__(self, value, cuda=False):
@@ -360,8 +396,7 @@ class Constant(DL2Tensor):
 
         self.cuda = cuda
         if cuda:
-            self.tensor = self.tensor.to('cuda:0')
-
+            self.tensor = self.tensor.to("cuda:0")
 
     def __str__(self):
         if len(str(self.value)) < 10:
@@ -377,6 +412,7 @@ class Constant(DL2Tensor):
     def get_variables(self):
         return []
 
+
 class Interval:
 
     def __init__(self, a, b, cuda=False):
@@ -385,8 +421,9 @@ class Interval:
         self.b = Constant(b, cuda)
 
     def __str__(self):
-        return f"([{self.a}, {self.b}])"    
-    
+        return f"([{self.a}, {self.b}])"
+
+
 class Model(DL2Tensor):
 
     def __init__(self, model):
@@ -394,7 +431,7 @@ class Model(DL2Tensor):
         self.cuda = next(model.parameters()).is_cuda
 
     def __call__(self, *args):
-        return Fn('()', lambda a, b: a(b), self, *args)
+        return Fn("()", lambda a, b: a(b), self, *args)
 
     def __str__(self):
         return f"(Model)"
@@ -403,20 +440,21 @@ class Model(DL2Tensor):
         if reset_cache:
             self.reset_cache()
         return self.model
-    
+
     def get_variables(self):
         return []
 
     def __getattr__(self, attr):
-        if attr.startswith('__'):
+        if attr.startswith("__"):
             raise AttributeError
         else:
             return ModelLayer(self, attr)
-    
+
+
 class ModelLayer(Model):
 
     def __init__(self, model, layer):
-        assert layer in ['p']
+        assert layer in ["p"]
         self.model = model
         self.cuda = model.cuda
         self.layer = layer
@@ -427,18 +465,20 @@ class ModelLayer(Model):
     def to_diffsat(self, cache=True, reset_cache=False):
         if reset_cache:
             self.reset_cache()
-        if self.layer == 'p':
-            return torch.nn.Sequential(self.model.to_diffsat(cache=cache), torch.nn.Softmax())
-    
+        if self.layer == "p":
+            return torch.nn.Sequential(
+                self.model.to_diffsat(cache=cache), torch.nn.Softmax()
+            )
+
     def get_variables(self):
         return self.model.get_variables()
 
     def __getattr__(self, attr):
         assert False
-    
-            
+
+
 def simplify(constraint, args):
-    if args.opt == 'lbfgsb':
+    if args.opt == "lbfgsb":
         boxes = constraint.get_box_constraints()
         constraint_s = constraint.simplify(delete_box_constraints=True)
         variables = list(set(constraint_s.get_variables()))
@@ -451,7 +491,10 @@ def simplify(constraint, args):
             constraint_s = And(*c)
         bounds = {}
         for var in variables:
-            bounds[var] = (torch.zeros_like(var.tensor).view(-1).cpu().numpy(), torch.zeros_like(var.tensor).view(-1).cpu().numpy())
+            bounds[var] = (
+                torch.zeros_like(var.tensor).view(-1).cpu().numpy(),
+                torch.zeros_like(var.tensor).view(-1).cpu().numpy(),
+            )
             bounds[var][0][:] = -np.inf
             bounds[var][1][:] = np.inf
         for box in boxes:
@@ -478,14 +521,22 @@ def simplify(constraint, args):
         bounds = None
     return constraint_s, variables, bounds
 
+
 def inner_opt(constraint_solve, constraint_check, variables, bounds, args):
-    if args.opt == 'lbfgsb':    
+    if args.opt == "lbfgsb":
         sgd = optim.SGD([v.tensor for v in variables], lr=0.0)
         for i in range(args.opt_iterations):
             satisfied = constraint_check.to_diffsat(cache=True).satisfy(args)
             if satisfied:
                 break
-            lbfgsb(variables, bounds, lambda: constraint_solve.to_diffsat(cache=True, reset_cache=True).loss(args), lambda: sgd.zero_grad())
+            lbfgsb(
+                variables,
+                bounds,
+                lambda: constraint_solve.to_diffsat(cache=True, reset_cache=True).loss(
+                    args
+                ),
+                lambda: sgd.zero_grad(),
+            )
     else:
         optimizer = args.opt([v.tensor for v in variables], lr=args.lr)
         for i in range(args.opt_max_iterations):
@@ -498,13 +549,15 @@ def inner_opt(constraint_solve, constraint_check, variables, bounds, args):
             optimizer.step()
     return satisfied
 
+
 def x_to_vars(x, variables, shapes_flat, shapes):
     running_shape = 0
     with torch.no_grad():
         for i, var in enumerate(variables):
-            val = x[running_shape:(running_shape + shapes_flat[i])]
+            val = x[running_shape : (running_shape + shapes_flat[i])]
             running_shape += shapes_flat[i]
             var.tensor[:] = torch.from_numpy(val.reshape(shapes[i]))
+
 
 def vars_to_x(variables):
     np_vars = [var.tensor.detach().cpu().numpy() for var in variables]
@@ -516,7 +569,7 @@ def vars_to_x(variables):
 
 def basinhopping(constraint_solve, constraint_check, variables, bounds, args):
     x0, shapes, shapes_flat = vars_to_x(variables)
-    
+
     def loss_fn(x):
         x_to_vars(x, variables, shapes_flat, shapes)
         return constraint_solve.to_diffsat(cache=True).loss(args)
@@ -527,7 +580,10 @@ def basinhopping(constraint_solve, constraint_check, variables, bounds, args):
         r = spo.OptimizeResult()
         r.x, _, _ = vars_to_x(variables)
         loss_after = constraint_solve.to_diffsat(cache=True).loss(args)
-        r.success = not (loss_before == loss_after and not constraint_check.to_diffsat(cache=True).satisfy(args))
+        r.success = not (
+            loss_before == loss_after
+            and not constraint_check.to_diffsat(cache=True).satisfy(args)
+        )
         r.fun = loss_after
         return r
 
@@ -540,19 +596,28 @@ def basinhopping(constraint_solve, constraint_check, variables, bounds, args):
             else:
                 x_to_vars(x_, variables, shapes_flat, shapes)
         return False
-    
+
     minimizer_kwargs = {}
-    minimizer_kwargs['method'] = local_optimization_step
+    minimizer_kwargs["method"] = local_optimization_step
 
     satisfied = constraint_check.to_diffsat(cache=True).satisfy(args)
     if satisfied:
         return True
-    spo.basinhopping(loss_fn, x0, niter=1000, minimizer_kwargs=minimizer_kwargs, callback=check_basinhopping,
-                     T=args.basinhopping_T, stepsize=args.basinhopping_stepsize)
+    spo.basinhopping(
+        loss_fn,
+        x0,
+        niter=1000,
+        minimizer_kwargs=minimizer_kwargs,
+        callback=check_basinhopping,
+        T=args.basinhopping_T,
+        stepsize=args.basinhopping_stepsize,
+    )
     return constraint_check.to_diffsat(cache=True).satisfy(args)
+
 
 class TimeoutException(Exception):
     pass
+
 
 def solve(constraint, args, return_values=None):
     def solve_(constraint, args, return_values=None):
@@ -560,7 +625,9 @@ def solve(constraint, args, return_values=None):
         if constraint is not None:
             constraint_s, variables, bounds = simplify(constraint, args)
             if args.use_basinhopping:
-                satisfied = basinhopping(constraint_s, constraint, variables, bounds, args)
+                satisfied = basinhopping(
+                    constraint_s, constraint, variables, bounds, args
+                )
             else:
                 satisfied = inner_opt(constraint_s, constraint, variables, bounds, args)
         else:
@@ -569,11 +636,16 @@ def solve(constraint, args, return_values=None):
         if return_values is None:
             if constraint is not None:
                 variables = list(set(constraint.get_variables()))
-                ret = dict([(v.name, v.tensor.detach().cpu().numpy()) for v in variables])
+                ret = dict(
+                    [(v.name, v.tensor.detach().cpu().numpy()) for v in variables]
+                )
             else:
                 ret = dict()
         else:
-            ret = [(str(r), r.to_diffsat(cache=True).detach().cpu().numpy()) for r in return_values]
+            ret = [
+                (str(r), r.to_diffsat(cache=True).detach().cpu().numpy())
+                for r in return_values
+            ]
             if len(ret) == 1:
                 ret = ret[0][1]
             else:
@@ -594,6 +666,7 @@ def solve(constraint, args, return_values=None):
     torch.cuda.empty_cache()
     return solved, results, t
 
+
 def lbfgsb(variables, bounds, loss_fn, zero_grad_fn):
     x, shapes, shapes_flat = vars_to_x(variables)
     bounds_list = []
@@ -611,7 +684,10 @@ def lbfgsb(variables, bounds, loss_fn, zero_grad_fn):
         loss.backward()
         with torch.no_grad():
             f = loss.detach().cpu().numpy().astype(np.float64)
-            g = np.stack([var.tensor.grad.detach().cpu().numpy().ravel() for var in variables]).astype(np.float64)
+            g = np.stack(
+                [var.tensor.grad.detach().cpu().numpy().ravel() for var in variables]
+            ).astype(np.float64)
         return f, g
+
     x, f, d = spo.fmin_l_bfgs_b(f, x, bounds=bounds_list)
     x_to_vars(x, variables, shapes_flat, shapes)
